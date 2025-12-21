@@ -4,6 +4,7 @@ import (
 	"io"
 	"log"
 	"net"
+	"time"
 )
 
 func startTCPLB(rr *RoundRobin) {
@@ -20,7 +21,17 @@ func startTCPLB(rr *RoundRobin) {
 			continue
 		}
 
-		go handleTCPConnection(clientConn, rr)
+		activeConnections.Inc()
+
+		go func() {
+			defer activeConnections.Dec()
+
+			start := time.Now()
+
+			handleTCPConnection(clientConn, rr)
+
+			connectionLatency.Observe(time.Since(start).Seconds())
+		}()
 	}
 }
 
@@ -32,7 +43,9 @@ func handleTCPConnection(clientConn net.Conn, rr *RoundRobin) {
 		return
 	}
 
-	log.Printf("Forwarding TCP connection to backend: %s", backend.Addr)
+	totalRequests.WithLabelValues(backend.Addr).Inc()
+
+	// log.Printf("Forwarding TCP connection to backend: %s", backend.Addr)
 
 	backendConn, err := net.Dial("tcp", backend.Addr)
 	if err != nil {

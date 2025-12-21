@@ -28,5 +28,7 @@ func main() {
 		}
 	}()
 
+	go startMetricsEndpoint()
+
 	startTCPLB(rr)
 }
