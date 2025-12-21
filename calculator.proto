@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package calculator;
+
+option go_package = "./calculator/proto;proto";
+
+service CalcService {
+  rpc Add(CalcRequest) returns (CalcResponse) {}
+  rpc Sub(CalcRequest) returns (CalcResponse) {}
+  rpc Mul(CalcRequest) returns (CalcResponse) {}
+  rpc Div(CalcRequest) returns (CalcResponse) {}
+}
+
+message CalcRequest {
+  double a = 1;
+  double b = 2;
+}
+
+message CalcResponse {
+  double result = 1;
+  string server_name = 2;
+}
