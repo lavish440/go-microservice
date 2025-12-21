@@ -21,15 +21,19 @@ func (rr *RoundRobin) Update(newBackends []Backend) {
 	rr.mu.Lock()
 	defer rr.mu.Unlock()
 
+	tempBackends := make(map[string]*Backend)
 	newKeys := make([]string, 0, len(newBackends))
+
 	for _, b := range newBackends {
 		if existing, ok := rr.backends[b.Addr]; ok {
-			existing.Addr = b.Addr
+			tempBackends[b.Addr] = existing
 		} else {
-			rr.backends[b.Addr] = &Backend{Addr: b.Addr, Healthy: false}
+			tempBackends[b.Addr] = &Backend{Addr: b.Addr, Healthy: false}
 		}
 		newKeys = append(newKeys, b.Addr)
 	}
+
+	rr.backends = tempBackends
 	rr.keys = newKeys
 }
 
@@ -39,7 +43,7 @@ func (rr *RoundRobin) Next() *Backend {
 
 	n := len(rr.keys)
 	if n == 0 {
-		return nil
+		return nil // No backends available
 	}
 
 	for range n {
@@ -49,5 +53,7 @@ func (rr *RoundRobin) Next() *Backend {
 			return backend
 		}
 	}
+
+	// No healthy backends found
 	return nil
 }
