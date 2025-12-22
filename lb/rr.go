@@ -1,59 +1,37 @@
 package main
 
-import "sync"
+import (
+	"log"
+)
 
 type RoundRobin struct {
-	mu       sync.Mutex
-	backends map[string]*Backend
-	keys     []string
-	index    int
+	backends []Backend
+	weights  []int
+	last     int
 }
 
 func NewRoundRobin() *RoundRobin {
-	return &RoundRobin{
-		backends: make(map[string]*Backend),
-		keys:     []string{},
-		index:    0,
-	}
+	return &RoundRobin{}
 }
 
-func (rr *RoundRobin) Update(newBackends []Backend) {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
+func (rr *RoundRobin) Update(backends []Backend) {
+	rr.backends = backends
+	rr.weights = []int{}
 
-	tempBackends := make(map[string]*Backend)
-	newKeys := make([]string, 0, len(newBackends))
-
-	for _, b := range newBackends {
-		if existing, ok := rr.backends[b.Addr]; ok {
-			tempBackends[b.Addr] = existing
-		} else {
-			tempBackends[b.Addr] = &Backend{Addr: b.Addr, Healthy: false}
+	for i := range backends {
+		for w := 0; w < backends[i].Weight; w++ {
+			rr.weights = append(rr.weights, i)
 		}
-		newKeys = append(newKeys, b.Addr)
 	}
-
-	rr.backends = tempBackends
-	rr.keys = newKeys
+	log.Printf("[lb] Updated weighted Round Robin with %d entries: %v\n", len(rr.weights), rr.weights)
 }
 
 func (rr *RoundRobin) Next() *Backend {
-	rr.mu.Lock()
-	defer rr.mu.Unlock()
-
-	n := len(rr.keys)
-	if n == 0 {
-		return nil // No backends available
+	if len(rr.weights) == 0 || len(rr.backends) == 0 {
+		return nil
 	}
 
-	for range n {
-		key := rr.keys[rr.index]
-		rr.index = (rr.index + 1) % n
-		if backend := rr.backends[key]; backend != nil && backend.Healthy {
-			return backend
-		}
-	}
-
-	// No healthy backends found
-	return nil
+	rr.last = (rr.last + 1) % len(rr.weights)
+	selectedIdx := rr.weights[rr.last]
+	return &rr.backends[selectedIdx]
 }

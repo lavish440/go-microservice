@@ -1,6 +1,7 @@
 package main
 
 import (
+	"io"
 	"log"
 	"os"
 	"time"
@@ -11,19 +12,21 @@ func main() {
 
 	service := os.Getenv("GRPC_SERVICE")
 	if service == "" {
-		log.Fatal("Environment variable GRPC_SERVICE not set!")
+		log.Fatal("GRPC_SERVICE Environment variable not set!")
+	}
+
+	if os.Getenv("DEBUG") != "true" {
+		log.SetOutput(io.Discard)
 	}
 
 	go func() {
+		backends := []Backend{}
 		for {
-			backends := discoverFromDocker(service)
-
+			backends = discoverFromDocker(service, backends)
 			rr.Update(backends)
-
-			for _, key := range rr.keys {
-				go checkHealth(rr.backends[key])
+			for i := range backends {
+				go checkHealth(&backends[i])
 			}
-
 			time.Sleep(10 * time.Second)
 		}
 	}()
